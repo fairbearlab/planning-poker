@@ -51,7 +51,7 @@ Teams meeting invite.
 
 | Layer | Choice | Why |
 |---|---|---|
-| Backend | Single vanilla **PHP 8** front controller | Already on the host, zero install, request-scoped. No framework, no Composer, no build step. |
+| Backend | Single vanilla **PHP 7.4** front controller | Already on the host, zero install, request-scoped. No framework, no Composer, no build step. |
 | Storage | **SQLite** via PDO, WAL mode | One file, no DB server. WAL + `busy_timeout` handles a dozen concurrent voters comfortably. |
 | Frontend | One HTML shell + vanilla JS + CSS, **no build** | No npm, no bundler, no CDN dependency — fully self-contained. |
 | Live updates | **Short-polling** (~1.5s) | No daemon means SSE/WebSockets would pin a PHP-FPM worker per client. Polling a cheap JSON endpoint is trivial load at this scale and more robust. |
@@ -62,7 +62,7 @@ seams in Section 3a mean that if hosting ever changes, the domain logic moves wi
 
 **Host prerequisites (2-minute check before building):**
 
-- PHP 8.0+ (7.4 works, but target 8.x).
+- PHP 7.4 (the production runtime; code must stay 7.4-compatible — no 8.x-only syntax).
 - `pdo_sqlite` enabled — `php -m | grep sqlite`. On by default almost everywhere.
 - One web-writable directory for the SQLite file.
 

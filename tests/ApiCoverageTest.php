@@ -156,6 +156,22 @@ final class ApiCoverageTest extends TestCase
         $this->assertNull(round_by_id($rid)['topic']);
     }
 
+    public function testSetTopicNoOpDoesNotBumpVersion(): void
+    {
+        $code = $this->makeRoom();
+        [, $tok] = $this->joinRoom($code, 'Adam');
+        $rid = $this->currentRoundId($code);
+
+        api_set_topic(['token' => $tok, 'round_id' => $rid, 'topic' => 'Login story']);
+        $afterSet = api_state(['code' => $code, 'token' => $tok])['version'];
+
+        // Resubmitting the identical topic is not a real state change — it must
+        // not bump version (else it invalidates every client's short-circuit).
+        api_set_topic(['token' => $tok, 'round_id' => $rid, 'topic' => 'Login story']);
+        $afterNoOp = api_state(['code' => $code, 'token' => $tok])['version'];
+        $this->assertSame($afterSet, $afterNoOp, 'no-op set_topic bumped version');
+    }
+
     public function testSetTopicRejectedOnStaleRound(): void
     {
         $code = $this->makeRoom();

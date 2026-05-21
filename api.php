@@ -458,9 +458,13 @@ function api_set_topic(array $req): array
     require_participant($token, $room);
 
     return with_transaction(function () use ($roundId, $room, $topic) {
-        assert_current_round($roundId, $room);
-        set_round_topic($roundId, $topic);
-        bump_room_version((int) $room['id']);
+        $round = assert_current_round($roundId, $room);
+        // Bump only on a real change — a no-op resubmit of the same topic must
+        // not invalidate every polling client's `since` short-circuit (PLAN §5).
+        if ($topic !== $round['topic']) {
+            set_round_topic($roundId, $topic);
+            bump_room_version((int) $room['id']);
+        }
         return ['ok' => true];
     });
 }
