@@ -83,18 +83,32 @@ final class StatsTest extends TestCase
     {
         $votes = [1 => '5', 2 => '5', 3 => '8', 4 => '?'];
         $r = compute_results($votes, self::DECK);
-        $this->assertSame(['5' => 2, '8' => 1, '?' => 1], $r['distribution']);
+        // Distribution is a list of {value,count} in deck order.
+        $this->assertSame([
+            ['value' => '5', 'count' => 2],
+            ['value' => '8', 'count' => 1],
+            ['value' => '?', 'count' => 1],
+        ], $r['distribution']);
     }
 
     public function testDistributionKeysFollowDeckOrder(): void
     {
         $votes = [1 => '8', 2 => '1', 3 => '5'];
         $r = compute_results($votes, self::DECK);
-        // Deck order is 1,5,8 regardless of vote arrival order. (PHP casts
-        // numeric-string keys to int; normalize before comparing — the JSON
-        // wire form is still an object keyed by these values.)
-        $keys = array_map('strval', array_keys($r['distribution']));
-        $this->assertSame(['1', '5', '8'], $keys);
+        // Deck order is 1,5,8 regardless of vote arrival order.
+        $values = array_column($r['distribution'], 'value');
+        $this->assertSame(['1', '5', '8'], $values);
+    }
+
+    public function testDistributionIsJsonArrayOfObjectsForZeroBasedDeck(): void
+    {
+        // Regression: a 0-based contiguous numeric deck used to json_encode the
+        // distribution as a JSON array (PHP int-key recast), dropping the labels.
+        // The list form always carries explicit string values.
+        $deck = ['0', '1', '2', '3'];
+        $r = compute_results([1 => '0', 2 => '1'], $deck);
+        $json = json_encode($r['distribution']);
+        $this->assertSame('[{"value":"0","count":1},{"value":"1","count":1}]', $json);
     }
 
     public function testUnsureCountReflectsQuestionMarks(): void
@@ -131,7 +145,8 @@ final class StatsTest extends TestCase
         // Encoding regression guard (PLAN §9): non-ASCII deck value round-trips.
         $votes = [1 => '☕', 2 => '☕', 3 => '5'];
         $r = compute_results($votes, self::DECK);
-        $this->assertSame(2, $r['distribution']['☕']);
+        $counts = array_column($r['distribution'], 'count', 'value');
+        $this->assertSame(2, $counts['☕']);
         $this->assertStringContainsString('☕', json_encode($r, JSON_UNESCAPED_UNICODE));
     }
 

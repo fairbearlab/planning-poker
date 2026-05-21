@@ -239,6 +239,6 @@ final class ApiCoverageTest extends TestCase
         $this->assertSame(5.0, $row['average']);
         $this->assertTrue($row['consensus'], 'single voter is unanimous');
         $this->assertSame('5', $row['leading']);
-        $this->assertSame(['5' => 1], $row['distribution']);
+        $this->assertSame([['value' => '5', 'count' => 1]], $row['distribution']);
     }
 }

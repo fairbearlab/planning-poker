@@ -11,11 +11,15 @@ declare(strict_types=1);
 
 /**
  * Is a deck value numeric for averaging purposes? `?` and `☕` are not.
- * Accepts integer and decimal strings (e.g. "0.5").
+ * Accepts plain integer and decimal strings only (e.g. "0", "5", "0.5"). Unlike
+ * is_numeric() this deliberately rejects scientific notation ("1e3"), signs,
+ * and surrounding whitespace — those are author-supplied labels that must not be
+ * silently pulled into the average or treated as different from their trimmed
+ * form by the (string-based) consensus check.
  */
 function stats_is_numeric(string $value): bool
 {
-    return is_numeric($value);
+    return preg_match('/^\d+(\.\d+)?$/', $value) === 1;
 }
 
 /**
@@ -30,7 +34,7 @@ function stats_is_numeric(string $value): bool
  *   consensus: bool,
  *   leading: string|null,
  *   range: array{min: float, max: float}|null,
- *   distribution: array<string,int>,
+ *   distribution: list<array{value: string, count: int}>,
  *   wide_spread: bool,
  *   unsure_count: int
  * }
@@ -71,14 +75,22 @@ function compute_results(array $castVotes, array $votingOptions): array
 
     $leading = leading_value($distribution, $votingOptions);
 
-    $unsureCount = isset($distribution['?']) ? $distribution['?'] : 0;
+    $unsureCount = $distribution['?'] ?? 0;
+
+    // Emit distribution as an ordered LIST of {value,count}, not a value=>count
+    // map: PHP recasts numeric-string keys to ints, so a 0-based numeric deck
+    // (e.g. "0","1","2") would json_encode as an array and lose the labels.
+    $distributionList = [];
+    foreach ($distribution as $value => $count) {
+        $distributionList[] = ['value' => (string) $value, 'count' => $count];
+    }
 
     return [
         'average' => $average,
         'consensus' => $consensus,
         'leading' => $leading,
         'range' => $range,
-        'distribution' => $distribution,
+        'distribution' => $distributionList,
         'wide_spread' => $wideSpread,
         'unsure_count' => $unsureCount,
     ];

@@ -29,5 +29,29 @@ Deferred work with a future trigger. Items already documented in `docs/PLAN.md` 
   enumeration is hard but not throttled. Add a simple per-IP token bucket on
   `create_room`/`join`; revisit whether `client_token` identity needs server-issued
   tokens instead of client-generated ones.
+- **Also revisit (same trigger), from the ship adversarial review (2026-05-21):**
+  - **Token in URL.** `state`/`recap` are GET with `client_token` in the query string, so
+    it lands in access/proxy logs and browser history (a scraped token replays `state` and
+    reveals that holder's own pre-reveal vote). Mitigated for now with `Cache-Control:
+    no-store`. When leaving trusted-team, move the token to an `X-Client-Token` header (or
+    make these POST) and update the plan §5 contract + tests.
+  - **No request size / participant caps.** `index.php` reads `php://input` with no body
+    limit; `create_room`/`join` have no participant cap. Add a max body size and a
+    per-room participant cap alongside rate limiting.
+  - **Heartbeat write amplification.** `api_state` writes (`touch_participant`) on every
+    poll, contending on SQLite's single writer. Fine for a dozen pollers; if scaling up,
+    throttle the heartbeat (only write when `last_seen_at` is older than a few seconds).
 - **Depends on:** nothing; orthogonal to the MVP build.
-- **Source:** outside-voice (codex) plan review, 2026-05-21.
+- **Source:** outside-voice (codex) plan review + ship adversarial review, 2026-05-21.
+
+## DB must not be web-accessible on the deploy host (deploy-time)
+
+- **What:** Confirm the SQLite file and its `-wal`/`-shm` sidecars cannot be fetched over
+  HTTP on the actual host. The DB holds every `client_token` and all (pre-reveal) votes.
+- **Why:** The `.htaccess` deny rules only work on Apache hosts that honor overrides. On
+  Nginx or a misconfigured host, `/data/poker.db` could be downloadable. The real defense
+  is `POKER_DB_PATH` pointing outside the web root.
+- **Trigger (do this when):** Plan C deploy.
+- **Where to start:** set `POKER_DB_PATH` outside the web root; then `curl` the DB path and
+  WAL sidecar and confirm 404/403. Pair with the WAL host probe above.
+- **Source:** ship adversarial review (codex), 2026-05-21.

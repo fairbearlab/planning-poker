@@ -109,6 +109,9 @@ function send_json(int $status, array $body): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
+    // Responses carry the caller's token (query param) and their own vote — keep
+    // them out of shared/proxy caches (PLAN §9).
+    header('Cache-Control: no-store');
     // UTF-8 end to end — deck values include ☕ (PLAN §9).
     echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 }

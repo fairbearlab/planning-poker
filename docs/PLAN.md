@@ -314,11 +314,20 @@ Pure functions in `stats.php`, computed when `state` is requested for a revealed
   "consensus": false,
   "leading": "5",
   "range": { "min": 3, "max": 13 },
-  "distribution": { "3": 1, "5": 3, "8": 1, "?": 1 },
+  "distribution": [
+    { "value": "3", "count": 1 },
+    { "value": "5", "count": 3 },
+    { "value": "8", "count": 1 },
+    { "value": "?", "count": 1 }
+  ],
   "wide_spread": true,
   "unsure_count": 1
 }
 ```
+
+`distribution` is an ordered **list** of `{ value, count }` (deck order), not a
+`value: count` object — PHP recasts numeric-string keys to ints, so a 0-based
+numeric deck would otherwise serialize as a JSON array and lose its labels.
 
 ---
 

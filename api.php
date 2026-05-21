@@ -432,6 +432,12 @@ function api_new_round(array $req): array
             && $cur['state'] === 'voting'
             && count_votes_for_round((int) $cur['id']) === 0
         ) {
+            // Still honor a topic the caller passed — otherwise "new round titled
+            // X" on a fresh empty round would silently keep the old/null topic.
+            if ($topic !== null && $topic !== $cur['topic']) {
+                set_round_topic((int) $cur['id'], $topic);
+                bump_room_version($roomId);
+            }
             return ['round_id' => (int) $cur['id']];
         }
 
