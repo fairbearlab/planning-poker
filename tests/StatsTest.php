@@ -142,4 +142,14 @@ final class StatsTest extends TestCase
         $r = compute_results($votes, $deck);
         $this->assertSame(1.2, $r['average']); // mean(0.5,1,2)=1.166→1.2
     }
+
+    public function testWideSpreadZeroMinTakesDivideSafeBranch(): void
+    {
+        // min === 0 with an off-deck max can't take the ratio path (would divide
+        // by zero), so is_wide_spread's `$min > 0 ? ratio : true` else-branch
+        // returns true. Deck has '0' but not '5', so '5' isn't deck-mapped.
+        $deck = ['0', 'XS', 'XL'];
+        $r = compute_results([1 => '0', 2 => '5'], $deck);
+        $this->assertTrue($r['wide_spread'], 'zero-min off-deck spread is treated as wide');
+    }
 }

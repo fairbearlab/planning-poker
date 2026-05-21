@@ -209,7 +209,7 @@ Each maps to one function in `api.php`.
 | `reveal` | POST | `token`, `round_id` | `{ ok }` — sets round to `revealed`. Any participant may call it. |
 | `new_round` | POST | `token`, `code`, `topic?` | `{ round_id }` — creates a fresh `voting` round. **Idempotent dedup:** if the current round is a `voting` round with zero votes, reuse it instead of creating a duplicate (kills the double-click double-round). Any participant may call it. |
 | `set_topic` | POST | `token`, `round_id`, `topic` | `{ ok }` — set/edit the current round's topic. |
-| `recap` | GET | `code`, `token` | `{ rounds: [{ topic, average, consensus, leading, distribution }] }` — read-only history (Section 8a). |
+| `recap` | GET | `code`, `token` | `{ rounds: [{ round_id, topic, average, consensus, leading, distribution }] }` — read-only history (Section 8a). Intentionally a compact summary: `range`/`wide_spread`/`unsure_count` are omitted here (live `state.results` carries the full set). |
 
 **`state` response shape** (the one the client polls):
 
@@ -220,8 +220,8 @@ Each maps to one function in `api.php`.
   "round":  { "id": 42, "topic": "...", "state": "voting" },
   "you":    { "participant_id": 7, "value": "5" },
   "participants": [
-    { "name": "Adam", "online": true, "has_voted": true,  "value": null },
-    { "name": "Jayme","online": true, "has_voted": false, "value": null }
+    { "participant_id": 7, "name": "Adam", "online": true, "has_voted": true,  "value": null },
+    { "participant_id": 8, "name": "Jayme","online": true, "has_voted": false, "value": null }
   ],
   "results": null
 }
@@ -265,8 +265,12 @@ so the frontend renders errors one way:
 { "error": "Human-readable message", "code": "machine_slug" }
 ```
 
-Example codes: `room_not_found` (404), `not_a_participant` (403), `round_not_current`
+Domain codes: `room_not_found` (404), `not_a_participant` (403), `round_not_current`
 (409), `invalid_value` (422), `round_revealed` (409 — vote after reveal).
+
+Transport codes (from `index.php`, same envelope): `unknown_endpoint` (404),
+`method_not_allowed` (405), `unsupported_media_type` (415 — non-JSON POST),
+`invalid_json` (400 — unparseable body), `internal_error` (500 — last-resort catch).
 
 **Version semantics (eng-review decision, ordering clarified after outside voice).**
 `room.version` is bumped **only** on real state changes — `vote`, `reveal`, `new_round`,

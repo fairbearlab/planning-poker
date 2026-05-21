@@ -26,7 +26,12 @@ const ROUTES = [
     'recap'       => ['GET',  'api_recap'],
 ];
 
-main();
+// Run as front controller under any web SAPI (apache2handler, fpm-fcgi,
+// cli-server). The plain `cli` SAPI is PHPUnit requiring this file to test
+// dispatch() directly, so skip the implicit run there.
+if (PHP_SAPI !== 'cli') {
+    main();
+}
 
 function main(): void
 {

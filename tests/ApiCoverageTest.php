@@ -201,4 +201,44 @@ final class ApiCoverageTest extends TestCase
         $r2 = compute_results([1 => '2', 2 => '3'], $deck);
         $this->assertFalse($r2['wide_spread'], 'off-deck ratio below threshold');
     }
+
+    /* ----------------------------------------------- cross-room authz isolation */
+
+    public function testParticipantTokenIsScopedToItsRoom(): void
+    {
+        // A valid token in room A must NOT be accepted in room B. require_participant
+        // scopes by (room_id, token); this guards against a regression that dropped
+        // the room_id scope (which would turn any token into a global pass).
+        $roomA = $this->makeRoom();
+        [, $tokenA] = $this->joinRoom($roomA, 'Adam');
+        $roomB = $this->makeRoom();
+
+        $this->assertApiError(403, 'not_a_participant', function () use ($roomB, $tokenA) {
+            api_state(['code' => $roomB, 'token' => $tokenA]);
+        });
+    }
+
+    /* ----------------------------------------------------------- recap shape */
+
+    public function testRecapRowExposesDocumentedFields(): void
+    {
+        // Recap rows must carry the full documented field set (PLAN §5):
+        // round_id, topic, average, consensus, leading, distribution.
+        $code = $this->makeRoom();
+        [, $token] = $this->joinRoom($code, 'Adam');
+        $rid = $this->currentRoundId($code);
+        api_set_topic(['token' => $token, 'round_id' => $rid, 'topic' => 'Login flow']);
+        api_vote(['token' => $token, 'round_id' => $rid, 'value' => '5']);
+        api_reveal(['token' => $token, 'round_id' => $rid]);
+
+        $recap = api_recap(['code' => $code, 'token' => $token]);
+        $this->assertCount(1, $recap['rounds']);
+        $row = $recap['rounds'][0];
+        $this->assertSame($rid, $row['round_id']);
+        $this->assertSame('Login flow', $row['topic']);
+        $this->assertSame(5.0, $row['average']);
+        $this->assertTrue($row['consensus'], 'single voter is unanimous');
+        $this->assertSame('5', $row['leading']);
+        $this->assertSame(['5' => 1], $row['distribution']);
+    }
 }

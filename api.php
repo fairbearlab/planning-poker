@@ -77,6 +77,7 @@ function opt_string(array $req, string $key, int $max): ?string
     return $v;
 }
 
+/** Fetch a required integer field. Accepts an int or a digit-only string. */
 function req_int(array $req, string $key): int
 {
     $v = $req[$key] ?? null;
@@ -204,6 +205,7 @@ function build_state(array $room, array $viewer): array
     $votes = $round !== null ? votes_for_round((int) $round['id']) : [];
     $revealed = $round !== null && $round['state'] === 'revealed';
     $nowTs = now_ts();
+    $options = room_options($room); // decode the deck once; reused below
 
     $people = [];
     foreach ($participants as $p) {
@@ -221,7 +223,7 @@ function build_state(array $room, array $viewer): array
 
     $results = null;
     if ($revealed) {
-        $results = compute_results($votes, room_options($room));
+        $results = compute_results($votes, $options);
     }
 
     $viewerId = (int) $viewer['id'];
@@ -231,7 +233,7 @@ function build_state(array $room, array $viewer): array
         'room' => [
             'code' => $room['code'],
             'name' => $room['name'],
-            'voting_options' => room_options($room),
+            'voting_options' => $options,
         ],
         'round' => $round === null ? null : [
             'id' => (int) $round['id'],
