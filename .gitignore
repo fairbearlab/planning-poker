@@ -1,0 +1,12 @@
+# Dev-only — never deployed
+/vendor/
+composer.lock
+.phpunit.result.cache
+
+# Runtime data (created on the host; never committed)
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
+
+# Editor / OS noise
+.DS_Store

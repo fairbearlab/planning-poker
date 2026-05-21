@@ -1,0 +1,24 @@
+# Dev-only. Two services, same PHP 7.4 image as the target host.
+#   docker compose run --rm test            # run the PHPUnit suite
+#   docker compose up web                   # serve at http://localhost:8080
+# Neither this file nor the image is part of the deploy (see deploy allowlist).
+
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    image: planning-poker-dev
+    volumes:
+      - .:/app
+    working_dir: /app
+
+  test:
+    extends: dev
+    command: sh -c "composer install --no-interaction --quiet && vendor/bin/phpunit"
+
+  web:
+    extends: dev
+    command: php -d variables_order=EGPCS -S 0.0.0.0:8080 index.php
+    ports:
+      - "8080:8080"

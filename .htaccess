@@ -1,0 +1,21 @@
+# Fallback DB protection (PLAN §9). The PRIMARY defense is placing data/ OUTSIDE
+# the web root via POKER_DB_PATH — this .htaccess only helps on Apache hosts that
+# honor overrides. If neither is possible on your host, that is a deploy-time red
+# flag to resolve, not paper over.
+
+# Deny direct HTTP access to the SQLite file and its WAL/SHM sidecars.
+<FilesMatch "\.(db|db-wal|db-shm|sqlite)$">
+    Require all denied
+</FilesMatch>
+
+# Deny access to the data directory entirely.
+RedirectMatch 404 ^/data/
+
+# Front-controller routing: everything that isn't a real static file goes to
+# index.php (so ?api=... works on a clean URL).
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [L]
+</IfModule>

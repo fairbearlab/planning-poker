@@ -1,0 +1,4 @@
+# Defense-in-depth: deny all HTTP access to this directory (PLAN §9).
+# Only a fallback — prefer placing the SQLite file outside the web root entirely
+# via POKER_DB_PATH.
+Require all denied
