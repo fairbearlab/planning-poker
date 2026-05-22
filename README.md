@@ -10,7 +10,8 @@ runtime dependencies. Composer, PHPUnit, and Docker are dev-only and never deplo
 
 Phase A (backend) and Phase B (browser frontend) are built — the full server with
 its PHPUnit suite, plus the single-page web app (`app.html` + `app.js` + `style.css`)
-covered by a Vitest/jsdom test harness. Deploy automation (Plan C) is not built yet.
+covered by a Vitest/jsdom test harness. Plan C deploy automation (`deploy.sh`) is
+built; the remaining Plan C work is the deploy-time host checklist (see TODOS.md).
 See [docs/PLAN.md](docs/PLAN.md) for the full design and [TODOS.md](TODOS.md) for
 deferred work.
 
@@ -40,3 +41,20 @@ The frontend has its own dev-only test harness (Vitest + jsdom), run on the host
 npm install                      # one-time, installs vitest + jsdom
 npm test                         # run the frontend test suite
 ```
+
+## Deploy
+
+`deploy.sh` copies only the runtime artifact to a target via an explicit allowlist —
+the nine runtime files (five `.php`, plus `app.html`, `app.js`, `style.css`, and
+`.htaccess`) plus a writable `data/` dir. Tests, Composer, Vitest, `node_modules`,
+and `.git` never ship.
+
+```bash
+./deploy.sh --list                    # show what ships and what never does
+./deploy.sh /var/www/planning-poker   # copy the runtime files into the target
+```
+
+On a reused target, stale non-allowlisted top-level files are pruned before copying,
+while `data/` is preserved so the live SQLite DB survives. After deploying, follow the
+deploy-time checklist the script prints (DB outside web root, WAL host probe, confirm
+the DB isn't downloadable, two-person smoke test) — see [TODOS.md](TODOS.md).

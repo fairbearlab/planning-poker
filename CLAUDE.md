@@ -17,7 +17,14 @@ docker compose run --rm dev vendor/bin/phpunit      # phpunit with custom args/f
 docker compose run --rm dev composer <args>         # composer (install, require, dump-autoload, ...)
 docker compose run --rm dev php <script-or-flags>   # any one-off php invocation
 docker compose up web                               # serve at http://localhost:8080 for manual/curl checks
+docker compose run --rm shell-test                  # bats tests for deploy.sh (tests/deploy/)
+docker compose run --rm shellcheck                  # static-lint deploy.sh
 ```
+
+`deploy.sh` is the only shipped non-PHP runtime tool and it runs `rm -rf` on prune, so
+it has its own bats suite (`tests/deploy/`) run on the Debian image's GNU coreutils —
+matching the Linux host, not the dev Mac's BSD tools. Never commit a change to
+`deploy.sh` that fails `shell-test` or `shellcheck`.
 
 Rule of thumb: if a command starts with `php`, `composer`, or `phpunit`, prefix it with
 `docker compose run --rm dev`. The `dev` service mounts the repo at `/app`, so file paths
