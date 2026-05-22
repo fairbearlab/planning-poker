@@ -11,6 +11,12 @@
 # dev-only file silently ships. An allowlist fails closed: anything not named here
 # is never copied, so the blast radius of forgetting is zero.
 #
+# On a REUSED target the allowlist alone isn't enough: copying in the runtime files
+# leaves any pre-existing dev-only junk (vendor/, .git/, tests/, an old composer.json)
+# in place, still served. So before copying we PRUNE every top-level entry in the
+# target that isn't allowlisted — EXCEPT data/, which holds the live SQLite DB and
+# must survive a redeploy. Removing a top-level dir clears everything nested under it.
+#
 # Usage:
 #   ./deploy.sh <target-dir>            # copy runtime files into <target-dir>
 #   ./deploy.sh --list                  # print the allowlist and exit (dry, no target)
@@ -58,15 +64,41 @@ if [[ -z "$TARGET" ]]; then
   exit 2
 fi
 
-SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# -P resolves symlinks to the physical path. The guard below compares physical
+# paths so a symlinked target (e.g. /var/www/current -> releases/x) can't slip
+# past the "don't deploy onto the source" check on a logical-path match.
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Guard against deploying onto the source tree itself.
-if [[ "$(cd "$TARGET" 2>/dev/null && pwd || echo)" == "$SRC" ]]; then
+# Guard against deploying onto the source tree itself (physical-path compare).
+if [[ "$(cd "$TARGET" 2>/dev/null && pwd -P || echo)" == "$SRC" ]]; then
   echo "refusing to deploy onto the source directory ($SRC)" >&2
   exit 2
 fi
 
-mkdir -p "$TARGET"
+mkdir -p -- "$TARGET"
+
+# Is a top-level basename one we keep? Allowlisted runtime files + data/ (the
+# live DB lives there). bash-3.2-safe: a loop, not an associative array, so this
+# runs on the dev Mac and the Linux host alike.
+_is_kept() {
+  local needle="$1" f
+  [[ "$needle" == "data" ]] && return 0
+  for f in "${RUNTIME_FILES[@]}"; do
+    [[ "$f" == "$needle" ]] && return 0
+  done
+  return 1
+}
+
+# Prune stale top-level entries left by a prior deploy or manual copy. data/ is
+# preserved wholesale (DB + WAL/SHM survive); everything else not on the allowlist
+# is removed so the target ends up as exactly the runtime artifact, nothing more.
+while IFS= read -r -d '' entry; do
+  base="$(basename "$entry")"
+  if ! _is_kept "$base"; then
+    echo "  - pruning stale: $base"
+    rm -rf -- "$entry"
+  fi
+done < <(find "$TARGET" -mindepth 1 -maxdepth 1 -print0)
 
 echo "Deploying runtime files → $TARGET"
 for f in "${RUNTIME_FILES[@]}"; do
@@ -74,14 +106,21 @@ for f in "${RUNTIME_FILES[@]}"; do
     echo "  MISSING from source: $f" >&2
     exit 1
   fi
-  cp -p "$SRC/$f" "$TARGET/$f"
+  cp -p -- "$SRC/$f" "$TARGET/$f"
   echo "  + $f"
 done
 
 # Writable data dir for the SQLite file. This is the in-web-root fallback location;
 # the PRIMARY recommendation is to point POKER_DB_PATH OUTSIDE the web root (PLAN §9).
-mkdir -p "$TARGET/data"
+mkdir -p -- "$TARGET/data"
 chmod 0775 "$TARGET/data"
+# Ship the data/ deny file too: it's the documented defense-in-depth fallback
+# (Require all denied) for the in-web-root DB. Creating data/ without it would
+# leave the SQLite file reachable on any host that honors .htaccess in subdirs.
+if [[ -e "$SRC/data/.htaccess" ]]; then
+  cp -p -- "$SRC/data/.htaccess" "$TARGET/data/.htaccess"
+  echo "  + data/.htaccess (DB deny)"
+fi
 echo "  + data/ (writable; chmod 0775)"
 
 cat <<EOF
