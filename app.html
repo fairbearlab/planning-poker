@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <title>Blind Planning Poker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>🃏</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- One shell, three screens. app.js toggles [hidden] on these. -->
+
+  <!-- A small banner for transient errors keyed off {error, code}. -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- ───────────────────────── Landing: create a room ─────────────────── -->
+  <main id="screen-landing" class="screen" hidden>
+    <div class="card">
+      <h1 class="brand">🃏 Blind Planning Poker</h1>
+      <p class="muted">Create a room, drop the link in your meeting invite, and vote blind.</p>
+
+      <form id="create-form" autocomplete="off">
+        <label class="field">
+          <span>Session name</span>
+          <input id="room-name" type="text" maxlength="80" required
+                 placeholder="Team Bear — Refinement">
+        </label>
+
+        <fieldset class="field deck-picker">
+          <legend>Deck</legend>
+          <label class="radio"><input type="radio" name="deck" value="fib" checked>
+            <span>Modified Fibonacci <em>1 2 3 5 8 13 21 ? ☕</em></span></label>
+          <label class="radio"><input type="radio" name="deck" value="tshirt">
+            <span>T-shirt <em>XS S M L XL ? ☕</em></span></label>
+          <label class="radio"><input type="radio" name="deck" value="pow2">
+            <span>Powers of 2 <em>1 2 4 8 16 ? ☕</em></span></label>
+          <label class="radio"><input type="radio" name="deck" value="custom">
+            <span>Custom</span></label>
+          <input id="custom-deck" type="text" class="custom-deck" hidden
+                 maxlength="200" placeholder="Comma-separated, e.g. 1, 2, 3, ?, ☕">
+        </fieldset>
+
+        <button type="submit" class="btn btn-primary">Create room</button>
+      </form>
+    </div>
+  </main>
+
+  <!-- ───────────────────────── Room view ──────────────────────────────── -->
+  <main id="screen-room" class="screen room" hidden>
+    <header class="room-header">
+      <div class="room-title">
+        <h1 id="room-name-display" class="room-name"></h1>
+        <button id="copy-link" class="btn btn-ghost" type="button" title="Copy room link">
+          🔗 Copy link
+        </button>
+      </div>
+      <div class="topic-row">
+        <span class="topic-label">Voting on:</span>
+        <button id="topic-edit" class="topic-edit" type="button"
+                title="Click to set what you're voting on">
+          <span id="topic-text" class="topic-text muted">what are we voting on?</span>
+          <span class="topic-pencil" aria-hidden="true">✏️</span>
+        </button>
+        <form id="topic-form" class="topic-form" hidden>
+          <input id="topic-input" type="text" maxlength="200"
+                 placeholder="Story title…">
+          <button type="submit" class="btn btn-small">Save</button>
+          <button type="button" id="topic-cancel" class="btn btn-small btn-ghost">Cancel</button>
+        </form>
+      </div>
+    </header>
+
+    <section class="panel participants-panel">
+      <h2 class="panel-title">Participants <span id="vote-tally" class="tally"></span></h2>
+      <ul id="participants" class="participants"></ul>
+    </section>
+
+    <section id="hand-panel" class="panel hand-panel">
+      <h2 class="panel-title">Your hand</h2>
+      <div id="hand" class="hand"></div>
+    </section>
+
+    <section id="results-panel" class="panel results-panel" hidden>
+      <h2 class="panel-title">Results</h2>
+      <div id="results"></div>
+    </section>
+
+    <div class="controls">
+      <button id="reveal-btn" class="btn btn-primary" type="button" disabled>Reveal votes</button>
+      <button id="new-round-btn" class="btn" type="button">New round</button>
+    </div>
+
+    <section class="panel recap-panel">
+      <button id="recap-toggle" class="recap-toggle" type="button" aria-expanded="false">
+        ▸ Session recap
+      </button>
+      <div id="recap" class="recap" hidden></div>
+    </section>
+  </main>
+
+  <!-- ───────────────────────── Name modal ─────────────────────────────── -->
+  <div id="name-modal" class="modal-backdrop" hidden>
+    <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="name-modal-title">
+      <h2 id="name-modal-title">Join the room</h2>
+      <form id="name-form" autocomplete="off">
+        <label class="field">
+          <span>Your name</span>
+          <input id="your-name" type="text" maxlength="80" required placeholder="Adam">
+        </label>
+        <button type="submit" class="btn btn-primary">Join</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Full-screen "room not found" / fatal error state. -->
+  <main id="screen-error" class="screen" hidden>
+    <div class="card center">
+      <h1 id="error-title">Something went wrong</h1>
+      <p id="error-message" class="muted"></p>
+      <a href="?" class="btn btn-primary">Create a new room</a>
+    </div>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+/* Blind Planning Poker — self-contained, no build, no CDN.
+   Mobile-first; light/dark via prefers-color-scheme. */
+
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f1f4;
+  --border: #d8dbe0;
+  --text: #1c1e21;
+  --muted: #6b7280;
+  --primary: #4f46e5;
+  --primary-ink: #ffffff;
+  --primary-soft: #eef2ff;
+  --accent: #059669;
+  --danger: #dc2626;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 12px rgba(0, 0, 0, .04);
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181d;
+    --surface: #1f2229;
+    --surface-2: #272b33;
+    --border: #353a44;
+    --text: #e8eaed;
+    --muted: #9aa1ad;
+    --primary: #8b85f5;
+    --primary-ink: #16181d;
+    --primary-soft: #2a2750;
+    --accent: #34d399;
+    --danger: #f87171;
+    --shadow: 0 1px 3px rgba(0, 0, 0, .4), 0 4px 12px rgba(0, 0, 0, .3);
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* The HTML `hidden` attribute is our show/hide switch. Component rules below set
+   display:flex/grid on .modal-backdrop, .topic-form, and .recap, which would
+   otherwise out-specify the UA `[hidden]{display:none}` rule and leave those
+   elements stuck visible. Force hidden to win. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-text-size-adjust: 100%;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.muted { color: var(--muted); }
+
+/* ───────────────────────── Screens & cards ──────────────────────────── */
+
+.screen {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.card.center { text-align: center; }
+
+.brand { font-size: 1.6rem; margin: 0 0 4px; }
+
+/* ───────────────────────── Forms ────────────────────────────────────── */
+
+.field { display: block; margin: 18px 0; }
+.field > span, .field > legend { display: block; font-weight: 600; margin-bottom: 6px; }
+
+input[type="text"] {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+input[type="text"]:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+fieldset.field { border: 0; margin: 18px 0; padding: 0; }
+
+.radio {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 0;
+  cursor: pointer;
+}
+.radio em { color: var(--muted); font-style: normal; letter-spacing: .04em; }
+.custom-deck { margin-top: 8px; }
+
+/* ───────────────────────── Buttons ──────────────────────────────────── */
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text);
+  cursor: pointer;
+  transition: filter .12s ease, transform .05s ease;
+}
+.btn:hover { filter: brightness(1.05); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+.btn-primary { background: var(--primary); color: var(--primary-ink); border-color: transparent; }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--muted); }
+.btn-small { padding: 6px 10px; font-size: .9rem; }
+
+/* The all-voted nudge (Section 8c). */
+.btn-primary.ready {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .5); }
+  50%      { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0); }
+}
+
+/* ───────────────────────── Room header ──────────────────────────────── */
+
+.room { max-width: 760px; }
+
+.room-header { margin-bottom: 16px; }
+.room-title { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.room-name { font-size: 1.4rem; margin: 0; flex: 1; min-width: 0; }
+
+.topic-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.topic-label { color: var(--muted); font-size: .9rem; }
+.topic-edit {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 0; padding: 4px 6px; border-radius: 6px;
+  color: var(--text); font: inherit; cursor: pointer; text-align: left;
+}
+.topic-edit:hover { background: var(--surface-2); }
+.topic-pencil { opacity: .5; font-size: .85rem; }
+.topic-form { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+.topic-form input { flex: 1; min-width: 160px; }
+
+/* ───────────────────────── Panels ───────────────────────────────────── */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.panel-title { font-size: 1rem; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.tally { color: var(--muted); font-weight: 400; font-size: .9rem; }
+
+/* ───────────────────────── Participants ─────────────────────────────── */
+
+.participants { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.participant {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; background: var(--surface-2);
+}
+.dot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--muted); flex: none;
+}
+.dot.online { background: var(--accent); }
+.participant .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant .pname.you { font-weight: 700; }
+.participant .pstate { font-weight: 600; }
+.participant .check { color: var(--accent); }
+.participant .pending { color: var(--muted); }
+.participant .pvalue {
+  font-weight: 700; background: var(--primary-soft); color: var(--primary);
+  padding: 2px 10px; border-radius: 999px; min-width: 28px; text-align: center;
+}
+
+/* ───────────────────────── Hand (cards) ─────────────────────────────── */
+
+.hand { display: flex; flex-wrap: wrap; gap: 10px; }
+.card-btn {
+  font: inherit; font-weight: 700; font-size: 1.2rem;
+  width: 64px; height: 88px;
+  border: 2px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--text); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .08s ease, border-color .12s ease, background .12s ease;
+}
+.card-btn:hover:not(:disabled) { transform: translateY(-3px); border-color: var(--primary); }
+.card-btn:active { transform: translateY(0); }
+.card-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.card-btn.selected {
+  background: var(--primary); color: var(--primary-ink);
+  border-color: var(--primary); transform: translateY(-3px);
+}
+.card-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+/* ───────────────────────── Controls ─────────────────────────────────── */
+
+.controls { display: flex; gap: 10px; margin-bottom: 16px; }
+.controls .btn { flex: 1; }
+
+/* ───────────────────────── Results ──────────────────────────────────── */
+
+.results-headline { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+.results-headline.is-consensus { color: var(--accent); }
+.results-secondary { color: var(--muted); font-size: .95rem; margin-bottom: 14px; }
+.results-secondary .warn { color: var(--danger); font-weight: 600; }
+
+.dist { display: grid; gap: 6px; }
+.dist-row { display: grid; grid-template-columns: 44px 1fr 28px; align-items: center; gap: 8px; }
+.dist-value { font-weight: 700; text-align: right; }
+.dist-bar-track { background: var(--surface-2); border-radius: 6px; height: 22px; overflow: hidden; }
+.dist-bar {
+  height: 100%; background: var(--primary); border-radius: 6px;
+  min-width: 2px; transition: width .3s ease;
+}
+.dist-bar.leading { background: var(--accent); }
+.dist-count { color: var(--muted); font-size: .9rem; }
+
+/* ───────────────────────── Recap ────────────────────────────────────── */
+
+.recap-panel { padding: 12px 16px; }
+.recap-toggle {
+  background: none; border: 0; font: inherit; font-weight: 600;
+  color: var(--text); cursor: pointer; padding: 4px 0; width: 100%; text-align: left;
+}
+.recap { margin-top: 12px; display: grid; gap: 10px; }
+.recap-round { border-top: 1px solid var(--border); padding-top: 10px; }
+.recap-round:first-child { border-top: 0; padding-top: 0; }
+.recap-topic { font-weight: 600; }
+.recap-meta { color: var(--muted); font-size: .9rem; }
+.recap-empty { color: var(--muted); }
+
+/* ───────────────────────── Name modal ───────────────────────────────── */
+
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .5);
+  display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+}
+.modal { max-width: 380px; width: 100%; }
+
+/* ───────────────────────── Toast ────────────────────────────────────── */
+
+.toast {
+  position: fixed; left: 50%; top: 16px; transform: translateX(-50%);
+  background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 8px;
+  box-shadow: var(--shadow); z-index: 100; max-width: 90vw; font-weight: 600;
+}
+
+@media (max-width: 480px) {
+  .card-btn { width: 56px; height: 78px; font-size: 1.05rem; }
+  .controls { flex-direction: column; }
+}
