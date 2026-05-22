@@ -15,6 +15,8 @@
   --danger: #dc2626;
   --shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 12px rgba(0, 0, 0, .04);
   --radius: 12px;
+  --pulse-ring: rgba(79, 70, 229, .5);
+  --pulse-ring-0: rgba(79, 70, 229, 0);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +33,8 @@
     --accent: #34d399;
     --danger: #f87171;
     --shadow: 0 1px 3px rgba(0, 0, 0, .4), 0 4px 12px rgba(0, 0, 0, .3);
+    --pulse-ring: rgba(139, 133, 245, .5);
+    --pulse-ring-0: rgba(139, 133, 245, 0);
   }
 }
 
@@ -136,8 +140,8 @@ fieldset.field { border: 0; margin: 18px 0; padding: 0; }
   animation: pulse 1.4s ease-in-out infinite;
 }
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, .5); }
-  50%      { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 var(--pulse-ring); }
+  50%      { box-shadow: 0 0 0 6px var(--pulse-ring-0); }
 }
 
 /* ───────────────────────── Room header ──────────────────────────────── */
@@ -228,8 +232,9 @@ fieldset.field { border: 0; margin: 18px 0; padding: 0; }
 .results-secondary .warn { color: var(--danger); font-weight: 600; }
 
 .dist { display: grid; gap: 6px; }
-.dist-row { display: grid; grid-template-columns: 44px 1fr 28px; align-items: center; gap: 8px; }
-.dist-value { font-weight: 700; text-align: right; }
+/* First column grows for long custom-deck values instead of clipping them. */
+.dist-row { display: grid; grid-template-columns: minmax(44px, auto) 1fr 28px; align-items: center; gap: 8px; }
+.dist-value { font-weight: 700; text-align: right; overflow-wrap: anywhere; }
 .dist-bar-track { background: var(--surface-2); border-radius: 6px; height: 22px; overflow: hidden; }
 .dist-bar {
   height: 100%; background: var(--primary); border-radius: 6px;
@@ -271,4 +276,16 @@ fieldset.field { border: 0; margin: 18px 0; padding: 0; }
 @media (max-width: 480px) {
   .card-btn { width: 56px; height: 78px; font-size: 1.05rem; }
   .controls { flex-direction: column; }
+  /* Keep secondary tap targets at the 44px minimum on touch screens. */
+  .btn-small, .topic-edit, .recap-toggle, #copy-link { min-height: 44px; }
+}
+
+/* Honor reduced-motion: no infinite pulse, no card-lift transforms. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .card-btn:hover:not(:disabled), .card-btn.selected { transform: none; }
 }

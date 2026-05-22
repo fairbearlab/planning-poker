@@ -11,7 +11,6 @@
   // ───────────────────────── Constants ──────────────────────────────────
   var POLL_MS = 1500;          // §12 poll cadence
   var RECONCILE_EVERY = 7;     // ≈ every 10s, drop `since` to refresh presence
-  var ONLINE_WINDOW_MS = 15000;
 
   var DECKS = {
     fib:    ['1', '2', '3', '5', '8', '13', '21', '?', '☕'],
@@ -41,12 +40,19 @@
     });
   }
 
-  // Single escape helper — all user-supplied text (name, topic) goes through
-  // this before hitting the DOM (PLAN §7, §9).
+  // Single escape helper — all user-supplied text (name, topic, deck values)
+  // goes through this before hitting the DOM (PLAN §7, §9). Escapes the five
+  // HTML-significant chars including both quote styles, so it's safe in element
+  // content AND attribute context (deck values are interpolated into a
+  // data-value="…" attribute in renderHand — quotes must be escaped or an
+  // option like `5" onfocus=…` would break out and inject a handler).
   function esc(s) {
-    var d = document.createElement('div');
-    d.textContent = s == null ? '' : String(s);
-    return d.innerHTML;
+    return (s == null ? '' : String(s))
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   var toastTimer = null;
@@ -61,10 +67,13 @@
   // ───────────────────────── API client ─────────────────────────────────
   // GET endpoints carry params in the query string; POST carry them in a JSON
   // body (the CSRF guard requires application/json — PLAN §5, §9).
-  function api(name, opts) {
+  function api(endpoint, opts) {
     opts = opts || {};
     var method = opts.method || 'GET';
-    var url = '?api=' + encodeURIComponent(name);
+    // Directory-relative ("./?api=") so calls hit the front controller even when
+    // the page was opened as /app.html directly — a bare "?api=" would post to
+    // /app.html (a static file) and never reach index.php's router.
+    var url = './?api=' + encodeURIComponent(endpoint);
     var init = { method: method, headers: {}, cache: 'no-store' };
 
     if (method === 'GET') {
@@ -93,12 +102,19 @@
   // ───────────────────────── localStorage identity ──────────────────────
   function tokenKey(code) { return 'pp_token_' + code; }
 
+  function isUuid(s) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s || '');
+  }
+
   function loadOrMakeToken(code) {
     var k = tokenKey(code);
     var t = null;
     try { t = localStorage.getItem(k); } catch (e) {}
-    if (!t) {
-      t = (crypto && crypto.randomUUID)
+    // Regenerate if missing OR corrupt — a stored value that isn't UUID-shaped
+    // (truncated write, manual tampering) would be rejected by the server and
+    // leave the user stuck on an unusable room shell.
+    if (!isUuid(t)) {
+      t = (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
         : uuidFallback();
       try { localStorage.setItem(k, t); } catch (e) {}
@@ -108,8 +124,13 @@
 
   function uuidFallback() {
     // RFC4122-shaped fallback for the rare browser without crypto.randomUUID.
+    // Prefer the CSPRNG; only fall back to Math.random if crypto is absent
+    // entirely (non-secure context) so token generation never throws.
+    var rand = (typeof crypto !== 'undefined' && crypto.getRandomValues)
+      ? function () { return crypto.getRandomValues(new Uint8Array(1))[0] & 15; }
+      : function () { return (Math.random() * 16) | 0; };
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      var r = (crypto.getRandomValues(new Uint8Array(1))[0]) & 15;
+      var r = rand();
       var v = c === 'x' ? r : ((r & 0x3) | 0x8);
       return v.toString(16);
     });
@@ -157,7 +178,8 @@
       api('create_room', { method: 'POST', body: { name: roomName, voting_options: options } })
         .then(function (res) {
           // Redirect into the room; the room flow picks up name/token.
-          location.search = '?room=' + encodeURIComponent(res.code);
+          // Directory-relative so we land on the front controller, not /app.html.
+          location.href = './?room=' + encodeURIComponent(res.code);
         })
         .catch(function (err) {
           btn.disabled = false;
@@ -299,8 +321,10 @@
           ? '<span class="pstate check">✓</span>'
           : '<span class="pstate pending">…</span>';
       }
+      var presence = p.online ? 'Online' : 'Offline';
       return '<li class="participant">'
-        + '<span class="dot ' + (p.online ? 'online' : '') + '"></span>'
+        + '<span class="dot ' + (p.online ? 'online' : '') + '" title="' + presence
+        + '" role="img" aria-label="' + presence + '"></span>'
         + '<span class="pname' + (isYou ? ' you' : '') + '">' + esc(p.name)
         + (isYou ? ' (you)' : '') + '</span>'
         + stateCell + '</li>';
@@ -384,15 +408,17 @@
         + '<span class="dist-value">' + esc(d.value) + '</span>'
         + '<span class="dist-bar-track"><span class="dist-bar' + (isLeading ? ' leading' : '')
         + '" style="width:' + pct + '%"></span></span>'
-        + '<span class="dist-count">' + d.count + '</span>'
+        + '<span class="dist-count">' + esc(d.count) + '</span>'
         + '</div>';
     }).join('');
 
+    // Server-computed numerics are escaped too (defense-in-depth): the frontend
+    // treats the response as a trust boundary, so nothing reaches innerHTML raw.
     var secondary = [];
-    secondary.push('Average: ' + (r.average == null ? 'N/A' : r.average));
-    if (r.range) secondary.push('Range: ' + r.range.min + '–' + r.range.max);
+    secondary.push('Average: ' + (r.average == null ? 'N/A' : esc(r.average)));
+    if (r.range) secondary.push('Range: ' + esc(r.range.min) + '–' + esc(r.range.max));
     if (r.unsure_count > 0) {
-      secondary.push(r.unsure_count + (r.unsure_count === 1 ? ' person' : ' people') + ' unsure');
+      secondary.push(esc(r.unsure_count) + (r.unsure_count === 1 ? ' person' : ' people') + ' unsure');
     }
     var wide = r.wide_spread ? ' <span class="warn">· wide spread, worth discussing</span>' : '';
 
@@ -416,6 +442,8 @@
     api('vote', { method: 'POST', body: { token: token, round_id: round.id, value: value } })
       .then(function () { lastVersion = null; poll(); })   // force a fresh render
       .catch(function (err) {
+        // On failure, re-sync from the server: the forced poll corrects the
+        // optimistic highlight back to the real (un)voted state.
         toast(err.message || 'Vote failed.');
         lastVersion = null; poll();
       });
@@ -487,7 +515,7 @@
       return '<div class="recap-round">'
         + '<div class="recap-topic">' + (r.topic ? esc(r.topic) : 'Round ' + (i + 1)) + '</div>'
         + '<div class="recap-meta">' + lead
-        + ' &nbsp;·&nbsp; avg ' + (r.average == null ? 'N/A' : r.average)
+        + ' &nbsp;·&nbsp; avg ' + (r.average == null ? 'N/A' : esc(r.average))
         + ' &nbsp;·&nbsp; ' + dist + '</div>'
         + '</div>';
     }).join('');
@@ -509,7 +537,10 @@
 
     // Copy link.
     $('copy-link').addEventListener('click', function () {
-      var url = location.origin + location.pathname + '?room=' + encodeURIComponent(room);
+      // Link to the directory (front controller), not whatever file we're on,
+      // so a link copied from /app.html still opens cleanly at /?room=CODE.
+      var dir = location.pathname.replace(/[^/]*$/, '');
+      var url = location.origin + dir + '?room=' + encodeURIComponent(room);
       var done = function () { toast('Link copied!'); };
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(done, function () { window.prompt('Copy this link:', url); });

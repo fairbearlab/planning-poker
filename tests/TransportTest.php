@@ -106,4 +106,29 @@ final class TransportTest extends TestCase
         $this->assertSame('{"value":"☕"}', $out);
         $this->assertSame(200, http_response_code());
     }
+
+    /**
+     * Regression for the bool-return plumbing (this branch's diff): a swallowed
+     * void return left app.js/style.css serving as empty 200s under the dev
+     * built-in server. serve_shell_or_static() now returns a bool that main()
+     * propagates to the router so the server serves real static files itself.
+     *
+     * Under PHPUnit's cli SAPI the cli-server static-asset branch is inert, so
+     * the shell path runs: it must emit the app.html shell and return true.
+     *
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testServeShellEmitsShellAndReturnsTrue(): void
+    {
+        $_SERVER['REQUEST_URI'] = '/';
+        ob_start();
+        $served = serve_shell_or_static();
+        $out = ob_get_clean();
+
+        // Returning true means "I handled it" — main() returns this up to the
+        // top-level `return`, which the SAPI treats as a normal handled request.
+        $this->assertTrue($served, 'shell path must report it handled the request');
+        $this->assertStringContainsString('<!doctype html', strtolower($out));
+    }
 }

@@ -2,6 +2,8 @@
 /vendor/
 composer.lock
 .phpunit.result.cache
+/node_modules/
+package-lock.json
 
 # Runtime data (created on the host; never committed)
 /data/*.db
@@ -10,3 +12,4 @@ composer.lock
 
 # Editor / OS noise
 .DS_Store
+.gstack/
