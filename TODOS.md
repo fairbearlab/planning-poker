@@ -44,21 +44,6 @@ Deferred work with a future trigger. Items already documented in `docs/PLAN.md` 
 - **Depends on:** nothing; orthogonal to the MVP build.
 - **Source:** outside-voice (codex) plan review + ship adversarial review, 2026-05-21.
 
-## Deploy allowlist must exclude JS dev tooling (deploy-time)
-
-- **What:** When Plan C ships the `deploy.sh` runtime allowlist, make sure it copies the
-  frontend runtime files (`app.html`, `app.js`, `style.css`) but EXCLUDES the dev-only
-  JS test tooling: `package.json`, `node_modules/`, `vitest.config.js`, and `tests/js/`
-  — the same way it already excludes `tests/`, `composer.json`, and `vendor/`.
-- **Why:** Phase B added a Vitest+jsdom frontend test harness. The `.htaccess` front
-  controller serves real static files directly, so any of these left in the web root on a
-  host without the allowlist could be fetched over HTTP. They are gitignored
-  (`node_modules/`, `package-lock.json`) but `package.json`/`vitest.config.js`/`tests/js/`
-  are committed and must be filtered at deploy time.
-- **Trigger (do this when):** Plan C deploy — writing `deploy.sh` / the runtime file list.
-- **Where to start:** the explicit runtime allowlist in `deploy.sh` (Plan §10a Plan C step 3).
-- **Source:** ship review, 2026-05-22.
-
 ## DB must not be web-accessible on the deploy host (deploy-time)
 
 - **What:** Confirm the SQLite file and its `-wal`/`-shm` sidecars cannot be fetched over
@@ -70,3 +55,15 @@ Deferred work with a future trigger. Items already documented in `docs/PLAN.md` 
 - **Where to start:** set `POKER_DB_PATH` outside the web root; then `curl` the DB path and
   WAL sidecar and confirm 404/403. Pair with the WAL host probe above.
 - **Source:** ship adversarial review (codex), 2026-05-21.
+
+## Completed
+
+### Deploy allowlist must exclude JS dev tooling
+
+- `deploy.sh` ships only the runtime allowlist (`index.php`, `api.php`, `store.php`,
+  `db.php`, `stats.php`, `app.html`, `app.js`, `style.css`, `.htaccess`) and explicitly
+  excludes the JS dev tooling (`package.json`, `node_modules/`, `vitest.config.js`,
+  `tests/js/`) alongside `tests/`, `composer.*`, and `vendor/`. On a reused target,
+  non-allowlisted top-level files are pruned (with `data/` preserved). Verified by a
+  deploy into a seeded temp dir — no dev files landed.
+- **Completed:** v0.2.1.0 (2026-05-22)

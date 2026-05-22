@@ -3,6 +3,30 @@
 All notable changes to this project are documented here. Versions use a 4-part
 `MAJOR.MINOR.PATCH.MICRO` scheme.
 
+## [0.2.1.0] - 2026-05-22
+
+A one-command deploy that ships only the runtime app and nothing else (Plan C
+step 3). Run `./deploy.sh /var/www/planning-poker` and you get exactly the nine
+`.php`/`.html`/`.js`/`.css` files plus a writable `data/` dir — never your tests,
+Composer, Vitest, `node_modules`, or `.git`.
+
+### Added
+- `deploy.sh`: copies the runtime artifact to a target via an explicit allowlist
+  (anything not named is never copied, so a new dev-only file can't silently
+  ship). `./deploy.sh --list` prints what ships and what never does; the script
+  ends with a deploy-time checklist (DB outside web root, WAL host probe,
+  confirm the DB isn't downloadable, two-person smoke test).
+- Redeploy is now safe on a reused target: stale top-level files left by a prior
+  deploy (`vendor/`, `tests/`, `composer.json`, `.git/`, …) are pruned before
+  copying, while `data/` is preserved so the live SQLite DB survives.
+
+### Security
+- The deploy ships `data/.htaccess` (the `Require all denied` DB fallback) into
+  the target, not just the root `.htaccess`, so the SQLite file's defense-in-depth
+  deny rule actually lands on the host.
+- The "don't deploy onto the source tree" guard compares physical paths
+  (`pwd -P`), so a symlinked target can't slip past it.
+
 ## [0.2.0.0] - 2026-05-22
 
 The browser frontend (Plan B): the planning-poker app you actually use, not just
