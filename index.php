@@ -29,20 +29,23 @@ const ROUTES = [
 // Run as front controller under any web SAPI (apache2handler, fpm-fcgi,
 // cli-server). The plain `cli` SAPI is PHPUnit requiring this file to test
 // dispatch() directly, so skip the implicit run there.
+// Under the dev built-in server, returning false from the router script tells
+// the server to serve the requested static file itself. main() propagates that
+// boolean up here so the top-level `return` reaches the server (a swallowed
+// return left app.js/style.css serving as empty 200s).
 if (PHP_SAPI !== 'cli') {
-    main();
+    return main();
 }
 
-function main(): void
+function main(): bool
 {
     $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
     $apiName = $_GET['api'] ?? null;
 
     // No api param: this is the SPA shell (or, under the dev built-in server, a
-    // static asset we let the server handle).
+    // static asset we let the server handle by returning false).
     if ($apiName === null) {
-        serve_shell_or_static();
-        return;
+        return serve_shell_or_static();
     }
 
     try {
@@ -55,6 +58,7 @@ function main(): void
         error_log('planning-poker: ' . $e->getMessage());
         send_json(500, ['error' => 'Internal error', 'code' => 'internal_error']);
     }
+    return true;
 }
 
 /**

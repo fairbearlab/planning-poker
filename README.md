@@ -8,9 +8,11 @@ runtime dependencies. Composer, PHPUnit, and Docker are dev-only and never deplo
 
 ## Status
 
-Phase A (backend) — the full server and its test suite. The frontend (Plan B) and
-deploy automation (Plan C) are not built yet. See [docs/PLAN.md](docs/PLAN.md) for
-the full design and [TODOS.md](TODOS.md) for deferred work.
+Phase A (backend) and Phase B (browser frontend) are built — the full server with
+its PHPUnit suite, plus the single-page web app (`app.html` + `app.js` + `style.css`)
+covered by a Vitest/jsdom test harness. Deploy automation (Plan C) is not built yet.
+See [docs/PLAN.md](docs/PLAN.md) for the full design and [TODOS.md](TODOS.md) for
+deferred work.
 
 ## How it works
 
@@ -28,6 +30,13 @@ Everything runs in Docker on PHP 7.4 (the production target). **Never use host
 `php`/`composer`/`phpunit`** — see [CLAUDE.md](CLAUDE.md) for why.
 
 ```bash
-docker compose run --rm test     # run the PHPUnit suite
-docker compose up web            # serve at http://localhost:8080
+docker compose run --rm test     # run the PHPUnit (backend) suite
+docker compose up web            # serve the app at http://localhost:8080/app.html
+```
+
+The frontend has its own dev-only test harness (Vitest + jsdom), run on the host:
+
+```bash
+npm install                      # one-time, installs vitest + jsdom
+npm test                         # run the frontend test suite
 ```
