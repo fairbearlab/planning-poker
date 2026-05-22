@@ -156,6 +156,23 @@ function resolve_room(array $req): array
 }
 
 /**
+ * Re-read a room by id, treating a missing row as 404. Used after a write to
+ * pick up a version bump: an opportunistic purge (PLAN §8) from a concurrent
+ * request can delete the room between resolve and re-read, and the typed
+ * build_state() would otherwise turn that race into a 500.
+ *
+ * @return array<string,mixed> room row
+ */
+function require_room_by_id(int $id): array
+{
+    $room = room_by_id($id);
+    if ($room === null) {
+        throw new ApiException(404, 'room_not_found', 'Room not found');
+    }
+    return $room;
+}
+
+/**
  * Confirm the token maps to a participant *in this resolved room*. The room is
  * never taken on the client's word (PLAN §5).
  *
@@ -327,7 +344,7 @@ function api_join(array $req): array
     });
 
     // Re-read the room so version reflects any bump above.
-    $room = room_by_id((int) $room['id']);
+    $room = require_room_by_id((int) $room['id']);
     $viewer = ['id' => $result];
     $state = build_state($room, $viewer);
     $state['participant_id'] = $result;
@@ -350,7 +367,7 @@ function api_state(array $req): array
     touch_participant((int) $viewer['id']);
 
     // Re-read version after the heartbeat to short-circuit unchanged polls.
-    $fresh = room_by_id((int) $room['id']);
+    $fresh = require_room_by_id((int) $room['id']);
     $version = (int) $fresh['version'];
 
     if (isset($req['since'])) {

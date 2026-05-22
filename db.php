@@ -63,8 +63,12 @@ function db_handle(bool $reset): PDO
     $path = db_path();
     if ($path !== ':memory:') {
         $dir = dirname($path);
-        if (!is_dir($dir)) {
-            mkdir($dir, 0775, true);
+        // Check the result rather than letting a failed mkdir() emit a warning:
+        // under a web SAPI that warning is written to the response body and
+        // corrupts the JSON envelope. Re-check is_dir() to tolerate a concurrent
+        // request winning the race.
+        if (!is_dir($dir) && !@mkdir($dir, 0775, true) && !is_dir($dir)) {
+            throw new RuntimeException("Cannot create data directory: {$dir}");
         }
     }
 

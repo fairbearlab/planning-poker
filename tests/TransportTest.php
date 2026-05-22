@@ -69,4 +69,41 @@ final class TransportTest extends TestCase
             dispatch('vote', 'POST');
         });
     }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testSendJsonFallsBackTo500OnInvalidUtf8(): void
+    {
+        // Invalid UTF-8 (a lone 0x80 byte, e.g. a mangled participant name)
+        // makes json_encode return false. send_json must emit the standard 500
+        // envelope rather than an empty 200 body. Redirect error_log to a temp
+        // file so its diagnostic line doesn't trip failOnRisky via stderr.
+        $log = tempnam(sys_get_temp_dir(), 'pp_log_');
+        ini_set('error_log', $log);
+        ob_start();
+        send_json(200, ['name' => "bad\x80name"]);
+        $out = ob_get_clean();
+        ini_restore('error_log');
+        unlink($log);
+
+        $this->assertSame('{"error":"Internal error","code":"internal_error"}', $out);
+        $this->assertSame(500, http_response_code());
+    }
+
+    /**
+     * @runInSeparateProcess
+     * @preserveGlobalState disabled
+     */
+    public function testSendJsonEmitsValidBodyForUnicode(): void
+    {
+        // The coffee deck value must round-trip unescaped (PLAN §9).
+        ob_start();
+        send_json(200, ['value' => '☕']);
+        $out = ob_get_clean();
+
+        $this->assertSame('{"value":"☕"}', $out);
+        $this->assertSame(200, http_response_code());
+    }
 }

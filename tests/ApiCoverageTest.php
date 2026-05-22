@@ -257,4 +257,46 @@ final class ApiCoverageTest extends TestCase
         $this->assertSame('5', $row['leading']);
         $this->assertSame([['value' => '5', 'count' => 1]], $row['distribution']);
     }
+
+    /* ----------------------------------------------- concurrent-purge race */
+
+    public function testRequireRoomByIdReturnsRowWhenPresent(): void
+    {
+        $code = $this->makeRoom();
+        $room = room_by_code($code);
+        $fetched = require_room_by_id((int) $room['id']);
+        $this->assertSame((int) $room['id'], (int) $fetched['id']);
+    }
+
+    public function testRequireRoomByIdMissingRoomIs404(): void
+    {
+        // An opportunistic purge (PLAN §8) can delete a room between resolve and
+        // the post-write re-read in api_join()/api_state(); the helper must turn
+        // that race into a 404, not let the typed build_state() raise a 500.
+        $this->assertApiError(404, 'room_not_found', function () {
+            require_room_by_id(999999);
+        });
+    }
+
+    /* ------------------------------------------------ data dir creation */
+
+    public function testDbDirCreationFailureThrows(): void
+    {
+        // Point the DB at a path whose parent dir cannot be created because an
+        // ancestor is a regular file. mkdir() fails; db() must throw a clear
+        // exception rather than emit a warning that corrupts the JSON body.
+        $blocker = sys_get_temp_dir() . '/pp_blocker_' . bin2hex(random_bytes(8));
+        file_put_contents($blocker, 'x');
+        try {
+            // db_reset() eagerly opens the handle, so it throws here (before any
+            // query). Register the expectation first.
+            $this->expectException(RuntimeException::class);
+            putenv('POKER_DB_PATH=' . $blocker . '/nested/poker.db');
+            db_reset();
+        } finally {
+            putenv('POKER_DB_PATH=' . $this->dbFile);
+            db_reset();
+            unlink($blocker);
+        }
+    }
 }
