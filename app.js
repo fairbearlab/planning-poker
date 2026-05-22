@@ -514,7 +514,7 @@
       var lead = r.consensus ? 'Consensus: ' + esc(r.leading)
         : (r.leading != null ? 'Leading: ' + esc(r.leading) : 'No numeric votes');
       var dist = r.distribution.map(function (d) {
-        return esc(d.value) + '×' + d.count;
+        return esc(d.value) + '×' + esc(d.count);
       }).join(', ');
       return '<div class="recap-round">'
         + '<div class="recap-topic">' + (r.topic ? esc(r.topic) : 'Round ' + (i + 1)) + '</div>'

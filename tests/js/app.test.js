@@ -389,6 +389,21 @@ describe('recap', () => {
     expect(recap.querySelector('.recap-meta').textContent).toContain('Leading: 8');
   });
 
+  it('escapes the distribution count, not just the value (defense-in-depth XSS)', async () => {
+    const fetch = sequence(
+      ok(state()),
+      ok({ rounds: [{ topic: 'T', consensus: false, leading: '8', average: 7,
+        distribution: [{ value: '8', count: '<img src=x onerror=alert(1)>' }] }] }),
+    );
+    loadApp({ url: '/?room=ABCDEF', storedName: 'Adam', storedTokens: { ABCDEF: TOK }, fetch });
+    await flush();
+    document.getElementById('recap-toggle').click();
+    await flush();
+    const html = document.getElementById('recap').innerHTML;
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;img');
+  });
+
   it('shows an empty-state message when there are no revealed rounds', async () => {
     const fetch = sequence(ok(state()), ok({ rounds: [] }));
     loadApp({ url: '/?room=ABCDEF', storedName: 'Adam', storedTokens: { ABCDEF: TOK }, fetch });
