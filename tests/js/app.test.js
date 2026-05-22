@@ -476,6 +476,31 @@ describe('resilience: errors, lifecycle, identity', () => {
     delete document.hidden;
   });
 
+  it("tears down a previous load's document listeners so visibility changes don't double-poll", async () => {
+    // jsdom shares one document across the file; each load registers its own
+    // visibilitychange handler. A leaked handler from an earlier load fires a
+    // phantom poll on the next visibility change. Count state polls on resume.
+    let stateCalls = 0;
+    const fetch = vi.fn((url) => {
+      if (url.indexOf('api=state') !== -1) stateCalls++;
+      return Promise.resolve(url.indexOf('api=join') !== -1 ? ok(state()) : ok({ unchanged: true }));
+    });
+    loadApp({ url: '/?room=AAAAAA', storedName: 'Adam', storedTokens: { AAAAAA: TOK }, fetch });
+    await flush();
+    loadApp({ url: '/?room=BBBBBB', storedName: 'Adam', storedTokens: { BBBBBB: TOK }, fetch });
+    await flush();
+
+    stateCalls = 0; // ignore join/setup traffic; measure only the resume poll
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    document.dispatchEvent(new Event('visibilitychange'));  // pause
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false });
+    document.dispatchEvent(new Event('visibilitychange'));  // resume → exactly one poll
+    await flush();
+
+    expect(stateCalls).toBe(1); // a leaked listener from the AAAAAA load would make it 2
+    delete document.hidden;
+  });
+
   it('falls back to window.prompt when the clipboard API is unavailable', async () => {
     const fetch = sequence(ok(state()));
     loadApp({ url: '/?room=ABCDEF', storedName: 'Adam', storedTokens: { ABCDEF: TOK }, fetch });

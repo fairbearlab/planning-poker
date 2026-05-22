@@ -38,8 +38,35 @@ const bodyInner = appHtml
  * @param {function} [opts.fetch]   mock fetch; defaults to a vi.fn() you can drive
  * @returns {{ fetch: Function, confirm: Function }}
  */
+// jsdom shares one document across every test in a file, but each loadApp() evals
+// a fresh app.js that registers its own document-level listeners (notably
+// `visibilitychange`, added asynchronously inside startPolling). Left in place,
+// stale handlers from earlier loads fire on later visibility changes and trigger
+// phantom polls/fetches. We wrap document.addEventListener once to record every
+// handler, and tear them all down at the start of each load.
+let trackedDocListeners = [];
+const nativeDocAdd = document.addEventListener.bind(document);
+const nativeDocRemove = document.removeEventListener.bind(document);
+document.addEventListener = function (type, handler, options) {
+  trackedDocListeners.push({ type, handler, options });
+  return nativeDocAdd(type, handler, options);
+};
+document.removeEventListener = function (type, handler, options) {
+  trackedDocListeners = trackedDocListeners.filter(
+    (l) => !(l.type === type && l.handler === handler),
+  );
+  return nativeDocRemove(type, handler, options);
+};
+
 export function loadApp(opts = {}) {
   const url = opts.url || '/';
+
+  // Remove any document listeners left behind by a previous load before mounting
+  // the next app instance.
+  for (const { type, handler, options } of trackedDocListeners) {
+    nativeDocRemove(type, handler, options);
+  }
+  trackedDocListeners = [];
 
   document.body.innerHTML = bodyInner;
   window.history.replaceState({}, '', url);
