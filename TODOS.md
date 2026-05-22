@@ -56,6 +56,66 @@ Deferred work with a future trigger. Items already documented in `docs/PLAN.md` 
   WAL sidecar and confirm 404/403. Pair with the WAL host probe above.
 - **Source:** ship adversarial review (codex), 2026-05-21.
 
+## Test & code-quality scaffold (post-MVP growth)
+
+Deferred tiers from the testing review (2026-05-22). Tier 1 — `bats` tests +
+`shellcheck` for `deploy.sh` — is **done** (see `tests/deploy/deploy.bats`,
+`docker compose run --rm shell-test` / `shellcheck`). The rest are sized for "as
+the project grows past MVP." All are dev/CI-only — none add a runtime dependency
+on the prod host (no npm/composer there).
+
+### Tier 2 — make coverage measurable
+
+- **What:** Wire up coverage for both suites so the "100% coverage is the goal"
+  line in `CLAUDE.md` becomes enforced, not aspirational. Today no coverage driver
+  is installed (PHP: no pcov/xdebug in the dev image; JS: no `@vitest/coverage-v8`).
+- **Why:** Both suites are green and look thorough, but nothing reports what slipped
+  through. You can't defend a coverage goal you don't measure.
+- **Where to start:**
+  - PHP: add **pcov** to `docker/Dockerfile.dev` (fast, PHP-7.4-compatible — proves
+    coverage on the *prod* runtime version), run `phpunit --coverage-text`, set a
+    `<coverage>` floor in `phpunit.xml`.
+  - JS: `npm i -D @vitest/coverage-v8`, add a `coverage.thresholds` block to
+    `vitest.config.js`.
+- **Trigger:** next time test gaps bite, or when onboarding a second contributor.
+- **Source:** testing review, 2026-05-22.
+
+### Tier 2 — Playwright end-to-end smoke layer
+
+- **What:** A *thin* Playwright suite (dev/CI-only) that drives the real app via
+  `docker compose up web` — not a replacement for the Vitest units, a complement.
+- **Why:** The 39 Vitest tests run `app.js` in jsdom with a **mocked** `fetch`, so
+  they never touch the real PHP backend, real SQLite, or a real browser. Three things
+  are structurally untestable today: (1) the **blind-vote boundary end-to-end** —
+  currently verified server-side and client-side *separately*, with the real
+  cross-the-wire check left as a manual devtools step (PLAN §10a Plan C step 4);
+  (2) **contract drift** between `app.js` and `api.php` shapes (the "reconcile
+  mismatches" risk jsdom mocks hide); (3) **multi-client integration** (polling
+  short-circuit, presence dots, reveal propagating to a 2nd client).
+- **Where to start:** scope to the 2-person flow + a network-tab assertion that a
+  second participant's `value` is `null` in the `state` response pre-reveal — turning
+  the highest-stakes correctness property from manual smoke into a CI gate.
+- **Trigger:** before the first non-trivial frontend refactor, or when contract drift
+  actually bites during integration.
+- **Source:** testing review, 2026-05-22 (user-flagged).
+
+### Tier 3 — CI + lint gate
+
+- **What:** A GitHub Actions workflow running `docker compose run --rm test`,
+  `npm test`, `shellcheck`, and the `bats` suite on every PR; plus static analysis.
+- **Why:** No `.github/` exists — both suites are green only because they're run by
+  hand, and the PHP-7.4-parity guarantee depends on a human remembering to use Docker.
+  A workflow using the same `php:7.4-cli` image locks parity in automatically.
+- **Where to start:**
+  - CI: matrix the four test commands; CI is dev-side so npm/composer there is fine.
+  - **PHPStan** (or Psalm) for PHP static analysis — catches type bugs and 8.x-only
+    syntax statically, reinforcing the 7.4-compat rule `CLAUDE.md` cares about.
+  - **ESLint** for `app.js`; optionally **PHP-CS-Fixer** + **Prettier** for style as
+    more hands touch the code.
+- **Trigger:** when a second contributor joins, or the first "tests were red on main"
+  surprise — whichever comes first.
+- **Source:** testing review, 2026-05-22.
+
 ## Completed
 
 ### Deploy allowlist must exclude JS dev tooling

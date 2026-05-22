@@ -1,5 +1,7 @@
-# Dev-only. Two services, same PHP 7.4 image as the target host.
+# Dev-only. Same PHP 7.4 image as the target host.
 #   docker compose run --rm test            # run the PHPUnit suite
+#   docker compose run --rm shell-test      # bats tests for deploy.sh
+#   docker compose run --rm shellcheck      # static-lint deploy.sh
 #   docker compose up web                   # serve at http://localhost:8080
 # Neither this file nor the image is part of the deploy (see deploy allowlist).
 
@@ -16,6 +18,17 @@ services:
   test:
     extends: dev
     command: sh -c "composer install --no-interaction --quiet && vendor/bin/phpunit"
+
+  # Bash tests for deploy.sh (the only shipped non-PHP runtime tool). bats runs on
+  # the Debian image's GNU coreutils, matching the Linux host.
+  shell-test:
+    extends: dev
+    command: bats tests/deploy
+
+  # Static-lint deploy.sh.
+  shellcheck:
+    extends: dev
+    command: shellcheck deploy.sh
 
   web:
     extends: dev

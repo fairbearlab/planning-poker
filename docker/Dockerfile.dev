@@ -3,8 +3,12 @@
 FROM php:7.4-cli
 
 # git + unzip let Composer fetch dist packages; libonig-dev builds mbstring.
+# bats + shellcheck test and lint deploy.sh on Debian's GNU coreutils — the same
+# tooling family as the Linux production host, so the find/cp/rm behavior the
+# deploy script depends on is exercised where it matches prod (not on the dev Mac's
+# BSD tools). Dev-only; never deployed.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git unzip libonig-dev \
+    && apt-get install -y --no-install-recommends git unzip libonig-dev bats shellcheck \
     && docker-php-ext-install mbstring \
     && rm -rf /var/lib/apt/lists/*
 
