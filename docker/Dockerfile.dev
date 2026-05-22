@@ -1,0 +1,14 @@
+# Dev/test image only — mirrors the target host's PHP 7.4 runtime.
+# The shipped artifact is plain PHP files; this image is never deployed.
+FROM php:7.4-cli
+
+# git + unzip let Composer fetch dist packages; libonig-dev builds mbstring.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git unzip libonig-dev \
+    && docker-php-ext-install mbstring \
+    && rm -rf /var/lib/apt/lists/*
+
+# Composer is dev-time tooling for installing PHPUnit.
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
