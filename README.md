@@ -45,8 +45,9 @@ npm test                         # run the frontend test suite
 ## Deploy
 
 `deploy.sh` copies only the runtime artifact to a target via an explicit allowlist —
-the nine `.php`/`.html`/`.js`/`.css` files plus a writable `data/` dir. Tests,
-Composer, Vitest, `node_modules`, and `.git` never ship.
+the nine runtime files (five `.php`, plus `app.html`, `app.js`, `style.css`, and
+`.htaccess`) plus a writable `data/` dir. Tests, Composer, Vitest, `node_modules`,
+and `.git` never ship.
 
 ```bash
 ./deploy.sh --list                    # show what ships and what never does

@@ -39,16 +39,31 @@ RUNTIME_FILES=(
   .htaccess     # Apache fallback DB-deny + front-controller rewrite
 )
 
-# Explicitly NEVER shipped (documented so the intent is auditable). The allowlist
-# already excludes these by omission; this list is a tripwire — if any of these
-# ever sneaks into RUNTIME_FILES, that is a bug.
+# Explicitly NEVER copied from source (documented so the intent is auditable).
+# The allowlist already excludes these by omission; this list is a tripwire — if
+# any of these ever sneaks into RUNTIME_FILES, the disjoint-list assertion below
+# fails the deploy. data/ is deliberately NOT here: it is never copied wholesale
+# from source, but the script DOES create a fresh writable data/ on the target
+# (with the deny .htaccess) — so it is neither "shipped" nor "never present".
 NEVER_SHIP=(
-  tests/ tests/js/ vendor/ node_modules/ data/
+  tests/ tests/js/ vendor/ node_modules/
   composer.json composer.lock phpunit.xml .phpunit.result.cache
   package.json package-lock.json vitest.config.js
   docker/ docker-compose.yml deploy.sh
   docs/ .git/ .gitignore .gstack/ CLAUDE.md CHANGELOG.md README.md TODOS.md VERSION .DS_Store
 )
+
+# Tripwire, now enforced (not just asserted in a comment): RUNTIME_FILES and
+# NEVER_SHIP must be disjoint. If a dev-only path ever lands in the allowlist,
+# fail the deploy loudly instead of silently shipping it.
+for _r in "${RUNTIME_FILES[@]}"; do
+  for _n in "${NEVER_SHIP[@]}"; do
+    if [[ "$_r" == "$_n" || "$_r/" == "$_n" ]]; then
+      echo "BUG: '$_r' is in both RUNTIME_FILES and NEVER_SHIP — refusing to deploy" >&2
+      exit 3
+    fi
+  done
+done
 
 if [[ "${1:-}" == "--list" ]]; then
   printf 'Runtime files (allowlist):\n'
@@ -69,13 +84,31 @@ fi
 # past the "don't deploy onto the source" check on a logical-path match.
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 
-# Guard against deploying onto the source tree itself (physical-path compare).
-if [[ "$(cd "$TARGET" 2>/dev/null && pwd -P || echo)" == "$SRC" ]]; then
+mkdir -p -- "$TARGET"
+
+# Canonicalize TARGET to its physical path (resolving symlinks) and use that
+# everywhere below. Without this, a symlinked target (current -> releases/x)
+# would: (a) be compared logically against SRC, and (b) defeat the prune step —
+# `find` on a command-line symlink doesn't descend into it, so stale files would
+# survive. Resolving once fixes both. mkdir above guarantees TARGET exists so cd
+# can't fail here.
+TARGET="$(cd "$TARGET" && pwd -P)"
+
+# Refuse obviously dangerous targets. The prune step below `rm -rf`s every
+# non-allowlisted top-level entry in TARGET, so a fat-fingered "/" or "$HOME"
+# would be catastrophic. Block filesystem root, the running user's home, and the
+# source tree itself (physical-path compare).
+case "$TARGET" in
+  /) echo "refusing to deploy onto / — that would rm -rf the system" >&2; exit 2 ;;
+esac
+if [[ "$TARGET" == "$SRC" ]]; then
   echo "refusing to deploy onto the source directory ($SRC)" >&2
   exit 2
 fi
-
-mkdir -p -- "$TARGET"
+if [[ -n "${HOME:-}" && "$TARGET" == "$HOME" ]]; then
+  echo "refusing to deploy onto \$HOME ($HOME) — pick a dedicated target dir" >&2
+  exit 2
+fi
 
 # Is a top-level basename one we keep? Allowlisted runtime files + data/ (the
 # live DB lives there). bash-3.2-safe: a loop, not an associative array, so this
@@ -116,11 +149,16 @@ mkdir -p -- "$TARGET/data"
 chmod 0775 "$TARGET/data"
 # Ship the data/ deny file too: it's the documented defense-in-depth fallback
 # (Require all denied) for the in-web-root DB. Creating data/ without it would
-# leave the SQLite file reachable on any host that honors .htaccess in subdirs.
-if [[ -e "$SRC/data/.htaccess" ]]; then
-  cp -p -- "$SRC/data/.htaccess" "$TARGET/data/.htaccess"
-  echo "  + data/.htaccess (DB deny)"
+# leave the SQLite file reachable on any host that honors .htaccess in subdirs,
+# so a missing source deny file fails the deploy closed (same as a missing
+# runtime file) rather than silently shipping an exposed DB directory.
+if [[ ! -e "$SRC/data/.htaccess" ]]; then
+  echo "  MISSING from source: data/.htaccess (DB deny) — refusing to ship an" >&2
+  echo "  unprotected data/ dir. Restore it or set POKER_DB_PATH outside web root." >&2
+  exit 1
 fi
+cp -p -- "$SRC/data/.htaccess" "$TARGET/data/.htaccess"
+echo "  + data/.htaccess (DB deny)"
 echo "  + data/ (writable; chmod 0775)"
 
 cat <<EOF

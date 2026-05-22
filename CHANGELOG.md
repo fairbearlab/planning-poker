@@ -7,8 +7,9 @@ All notable changes to this project are documented here. Versions use a 4-part
 
 A one-command deploy that ships only the runtime app and nothing else (Plan C
 step 3). Run `./deploy.sh /var/www/planning-poker` and you get exactly the nine
-`.php`/`.html`/`.js`/`.css` files plus a writable `data/` dir — never your tests,
-Composer, Vitest, `node_modules`, or `.git`.
+runtime files (five `.php`, plus `app.html`, `app.js`, `style.css`, and
+`.htaccess`) plus a writable `data/` dir — never your tests, Composer, Vitest,
+`node_modules`, or `.git`.
 
 ### Added
 - `deploy.sh`: copies the runtime artifact to a target via an explicit allowlist
