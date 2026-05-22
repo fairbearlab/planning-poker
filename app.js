@@ -219,7 +219,11 @@
         if (err.status === 404) {
           fatal('Room not found', 'This room link is invalid or has expired.');
         } else {
+          // Transient failure (500/network). Re-open the name modal so the user
+          // has a visible, retryable surface — without this the modal is already
+          // hidden and no app screen is mounted, stranding them on a blank page.
           toast(err.message || 'Could not join the room.');
+          promptName();
         }
       });
   }

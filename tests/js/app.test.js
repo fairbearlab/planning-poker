@@ -128,6 +128,28 @@ describe('join + identity', () => {
     expect(tok).toMatch(/[0-9a-f-]{36}/i);
   });
 
+  it('re-opens the name modal on a transient (500) join failure so the user can retry', async () => {
+    // No app screen is mounted behind the name modal, so a transient failure that
+    // only toasts would strand the user on a blank page. The modal must come back.
+    const fetch = sequence(err(500, { error: 'boom' }), ok(state()));
+    loadApp({ url: '/?room=ABCDEF', storedName: null, fetch });
+
+    const modal = document.getElementById('name-modal');
+    document.getElementById('your-name').value = 'Boulware';
+    document.getElementById('name-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+
+    expect(modal.hidden).toBe(false);                                  // back, not stranded
+    expect(document.getElementById('screen-error').hidden).toBe(true); // not a fatal 404
+    expect(document.getElementById('toast').hidden).toBe(false);       // user told why
+    expect(document.getElementById('your-name').value).toBe('Boulware'); // name preserved
+
+    // A one-tap retry now succeeds and lands in the room.
+    document.getElementById('name-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    await flush();
+    expect(document.getElementById('screen-room').hidden).toBe(false);
+  });
+
   it('shows a fatal "room not found" screen on a 404 join', async () => {
     const fetch = sequence(err(404, { error: 'no room' }));
     loadApp({ url: '/?room=GONE12', storedName: 'Adam', fetch });
