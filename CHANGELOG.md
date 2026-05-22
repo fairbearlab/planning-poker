@@ -3,6 +3,39 @@
 All notable changes to this project are documented here. Versions use a 4-part
 `MAJOR.MINOR.PATCH.MICRO` scheme.
 
+## [0.2.0.0] - 2026-05-22
+
+The browser frontend (Plan B): the planning-poker app you actually use, not just
+the API. Open a link, pick a deck, and vote with your team in real time.
+
+### Added
+- A single-page web app (`app.html` + `app.js` + `style.css`, no build step, no
+  dependencies): create a room and pick a deck (Fibonacci, T-shirt, powers of two,
+  or a custom comma-separated deck), then share the room link.
+- Join by name; your name and a per-room identity token are remembered in
+  `localStorage`, so re-opening the link drops you straight back in.
+- Tap a card to vote, tap again to change it before reveal; the selection updates
+  instantly. Reveal shows everyone's cards with the consensus/leading estimate up
+  front and the average kept secondary so it doesn't anchor the room.
+- Live updates by polling every 1.5s (skipping re-renders when nothing changed),
+  with presence dots that pause while your tab is hidden and refresh on return.
+- Inline topic editing, a copy-link button, a "new round" control, an
+  "everyone's in — reveal?" nudge, and a collapsible recap of past rounds.
+
+### Security
+- All server- and user-supplied text is HTML-escaped before rendering, including in
+  attribute context — a deck value like `5"` can no longer break out of an
+  attribute to inject markup (DOM-based XSS).
+- API calls and shared links are directory-relative, so opening the app as
+  `/app.html` directly can't misroute requests away from the front controller.
+- Corrupt or non-UUID identity tokens in `localStorage` are regenerated instead of
+  being sent to (and rejected by) the server.
+
+### Accessibility
+- Online/offline presence dots carry text labels (not color alone), the live vote
+  tally announces changes, secondary controls meet the 44px touch-target minimum,
+  and motion respects `prefers-reduced-motion`. Dark mode is fully themed.
+
 ## [0.1.0.0] - 2026-05-21
 
 First backend slice (Plan A): the full server for blind planning poker. No
