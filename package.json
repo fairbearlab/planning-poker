@@ -4,6 +4,9 @@
   "private": true,
   "description": "Dev-only test harness for the vanilla-JS frontend (app.js). Never deployed — the shipped artifact is just the runtime .php/.html/.js/.css files.",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
